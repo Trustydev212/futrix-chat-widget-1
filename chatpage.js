@@ -36,6 +36,18 @@
   .fx-tools{margin-left:auto; display:flex; gap:8px}
   .fx-btn{background:transparent; border:1px solid var(--b); border-radius:10px; padding:8px 10px; font-size:12px; cursor:pointer; color:#334155}
   @media (max-width:640px){ .fx-bubble{max-width:86%} .fx-wrap{padding:10px} }`;
+  /* +++ BUMP FONT SIZE +++ */
+#fx-chatpage{ 
+  /* 16–18px tuỳ màn hình, auto responsive */
+  font-size: clamp(16px, 1rem + 0.25vw, 18px);
+}
+
+.fx-bubble{ font-size: 1em; line-height: 1.6; }         /* nội dung chat thấy rõ hơn */
+.fx-inp{ font-size: 1em; }                               /* ô nhập */
+.fx-send, .fx-btn, .fx-chip, .fx-typing, .fx-status{ 
+  font-size: 0.95em;                                     /* nhỉnh hơn chút */
+}
+.fx-title{ font-size: 1.2em; }                           /* tiêu đề header lớn hơn */
 
   // ===== HTML skeleton =====
   const html = `
