@@ -4,54 +4,58 @@
   const TITLE   = el.dataset.title || 'Trợ lý AI';
   const PRI     = el.dataset.color || '#0b5bd3';
   const CHIPS   = (el.dataset.chips || '').split('|').filter(Boolean);
+  const MODE    = (el.dataset.mode || 'overlay').toLowerCase(); // 'inline' | 'overlay'
+  const TARGET  = el.dataset.target || '';                      // ví dụ '#fx-slot'
+  const H       = el.dataset.height || '560';                   // desktop height
+  const MH      = el.dataset.mheight || '70vh';                 // mobile height
 
   if(!API_URL){ console.warn('[ChatPage] Missing data-api'); return; }
+  const toUnit = v => /^\d+(\.\d+)?$/.test(String(v)) ? (v+'px') : String(v);
 
-  // ===== CSS (full screen, fix 100vh mobile) =====
-  const css = `
-  html,body{height:100%;margin:0}
-  body.fx-noscroll{overflow:hidden}
-  :root{--vh:1vh; --pri:${PRI}; --bg:#fff; --txt:#0f172a; --mut:#6b7280; --b:#e5e7eb}
-  #fx-chatpage{position:fixed; inset:0; z-index:2147483000; width:100vw; height:calc(var(--vh)*100);
-    background:linear-gradient(180deg,#f6f9ff,#fff); font-family:Inter,system-ui,Arial; color:var(--txt);
-    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom)}
-  .fx-wrap{height:100%; max-width:1024px; margin:0 auto; padding:16px}
+  // ===== CSS chung =====
+  const baseCss = `
+  :root{ --pri:${PRI}; --bg:#fff; --txt:#0f172a; --mut:#6b7280; --b:#e5e7eb }
+  .fx-wrap{height:100%; max-width:1024px; margin:0 auto; padding:16px; box-sizing:border-box}
   .fx-card{display:flex; flex-direction:column; height:100%; background:var(--bg); border:1px solid var(--b);
     border-radius:16px; box-shadow:0 18px 40px rgba(0,0,0,.08); overflow:hidden}
   .fx-head{padding:14px 16px; border-bottom:1px solid var(--b); display:flex; gap:12px; align-items:center}
   .fx-logo{width:40px;height:40px;border-radius:10px;background:var(--pri); display:grid;place-items:center;color:#fff;font-weight:800}
-  .fx-title{font-weight:700}
-  .fx-status{margin-left:auto;font-size:12px;color:var(--mut)}
+  .fx-title{font-weight:700; font-size:1.2em}
+  .fx-status{margin-left:auto;font-size:.95em;color:var(--mut)}
   .fx-body{flex:1 1 auto; min-height:0; padding:16px; overflow:auto; background:#fbfdff}
   .fx-msg{display:flex; gap:10px; margin:10px 0}
   .fx-msg--me{justify-content:flex-end}
-  .fx-bubble{max-width:75%; padding:10px 12px; border-radius:14px; border:1px solid var(--b); background:#eef4ff}
+  .fx-bubble{max-width:75%; padding:10px 12px; border-radius:14px; border:1px solid var(--b); background:#eef4ff; font-size:1em; line-height:1.6}
   .fx-msg--me .fx-bubble{background:#eaffea; border-color:#c8f5c8}
-  .fx-typing{font-size:12px; color:var(--mut); margin:0 16px 8px}
+  .fx-typing{font-size:.95em; color:var(--mut); margin:0 16px 8px}
   .fx-chipbar{display:flex; gap:8px; flex-wrap:wrap; margin:6px 16px 0}
-  .fx-chip{background:#eef2ff; border:1px solid #dbe3ff; color:#243b77; border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer}
+  .fx-chip{background:#eef2ff; border:1px solid #dbe3ff; color:#243b77; border-radius:999px; padding:6px 10px; font-size:.95em; cursor:pointer}
   .fx-foot{border-top:1px solid var(--b); padding:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-  .fx-inp{flex:1; border:1px solid var(--b); border-radius:12px; padding:12px 14px; font-size:14px; outline:none}
-  .fx-send{background:var(--pri); color:#fff; border:none; border-radius:12px; padding:12px 16px; font-weight:600; cursor:pointer}
+  .fx-inp{flex:1; border:1px solid var(--b); border-radius:12px; padding:12px 14px; font-size:1em; outline:none}
+  .fx-send{background:var(--pri); color:#fff; border:none; border-radius:12px; padding:12px 16px; font-weight:600; cursor:pointer; font-size:.95em}
   .fx-tools{margin-left:auto; display:flex; gap:8px}
-  .fx-btn{background:transparent; border:1px solid var(--b); border-radius:10px; padding:8px 10px; font-size:12px; cursor:pointer; color:#334155}
-  @media (max-width:640px){ .fx-bubble{max-width:86%} .fx-wrap{padding:10px} }`;
-  /* +++ BUMP FONT SIZE +++ */
-#fx-chatpage{ 
-  /* 16–18px tuỳ màn hình, auto responsive */
-  font-size: clamp(16px, 1rem + 0.25vw, 18px);
-}
+  .fx-btn{background:transparent; border:1px solid var(--b); border-radius:10px; padding:8px 10px; font-size:.95em; cursor:pointer; color:#334155}
+  @media (max-width:640px){ .fx-wrap{padding:10px} .fx-bubble{max-width:86%} }
+  `;
 
-.fx-bubble{ font-size: 1em; line-height: 1.6; }         /* nội dung chat thấy rõ hơn */
-.fx-inp{ font-size: 1em; }                               /* ô nhập */
-.fx-send, .fx-btn, .fx-chip, .fx-typing, .fx-status{ 
-  font-size: 0.95em;                                     /* nhỉnh hơn chút */
-}
-.fx-title{ font-size: 1.2em; }                           /* tiêu đề header lớn hơn */
+  // ===== CSS cho 2 mode =====
+  const overlayCss = `
+  html,body{height:100%;margin:0}
+  body.fx-noscroll{overflow:hidden}
+  :root{ --vh:1vh }
+  #fx-chatpage{position:fixed; inset:0; z-index:2147483000; width:100vw; height:calc(var(--vh)*100);
+    background:linear-gradient(180deg,#f6f9ff,#fff); font-family:Inter,system-ui,Arial; color:var(--txt);
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom)}
+  `;
+  const inlineCss = (h, mh) => `
+  /* inline: chiếm đúng khối chứa */
+  #fx-chatpage{ position:relative; inset:auto; width:100%; height:${toUnit(h)};
+    background:linear-gradient(180deg,#f6f9ff,#fff); font-family:Inter,system-ui,Arial; color:var(--txt); }
+  @media (max-width:640px){ #fx-chatpage{ height:${toUnit(mh)}; } }
+  `;
 
   // ===== HTML skeleton =====
-  const html = `
-  <div id="fx-chatpage">
+  const shell = `
     <div class="fx-wrap">
       <div class="fx-card">
         <div class="fx-head">
@@ -73,23 +77,32 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>`;
+    </div>`;
 
-  // Inject
-  const S=document.createElement('style'); S.textContent=css; document.head.appendChild(S);
-  document.body.insertAdjacentHTML('beforeend', html);
-  document.body.classList.add('fx-noscroll');
+  // ===== inject CSS + mount =====
+  const S=document.createElement('style'); S.textContent = baseCss + (MODE==='inline' ? inlineCss(H,MH) : overlayCss); document.head.appendChild(S);
 
-  // Fix 100vh mobile
-  const setVH=()=>document.documentElement.style.setProperty('--vh',(window.innerHeight*0.01)+'px');
-  setVH(); addEventListener('resize',setVH); addEventListener('orientationchange',setVH);
+  // tạo node root
+  const root = document.createElement('div'); root.id = 'fx-chatpage'; root.innerHTML = shell;
 
-  // DOM refs
+  // mount
+  let mountEl = null;
+  if (MODE === 'inline' && TARGET) mountEl = document.querySelector(TARGET);
+  if (MODE === 'inline' && mountEl) {
+    mountEl.innerHTML = ''; // dọn placeholder
+    mountEl.appendChild(root);
+  } else {
+    document.body.appendChild(root);
+    // overlay: khóa scroll + fix 100vh mobile
+    document.body.classList.add('fx-noscroll');
+    const setVH=()=>document.documentElement.style.setProperty('--vh',(window.innerHeight*0.01)+'px');
+    setVH(); addEventListener('resize',setVH); addEventListener('orientationchange',setVH);
+  }
+
+  // ===== JS chat =====
   const $=id=>document.getElementById(id);
   const body=$('fxBody'), input=$('fxInput'), send=$('fxSend'), clearBtn=$('fxClear'), exportBtn=$('fxExport'), typing=$('fxTyping'), chips=$('fxChips');
 
-  // Persist local
   const KEY='fx_chat_history_v1';
   let history=[]; try{ history = JSON.parse(localStorage.getItem(KEY)||'[]'); }catch{}
   for(const m of history) append(m.role,m.content);
